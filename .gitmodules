@@ -1,0 +1,4 @@
+[submodule "frontend"]
+	path = frontend
+	url = git@github.com:gavotte25/flexible-salesync-frontend.git
+	branch = main-tenant-a
