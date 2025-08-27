@@ -1,0 +1,15 @@
+[submodule "authentication"]
+	path = authentication
+	url = git@github.com:gavotte25/flexible-salesync-authentication.git
+[submodule "frontend"]
+	path = frontend
+	url = git@github.com:gavotte25/flexible-salesync-frontend.git
+[submodule "notification"]
+	path = notification
+	url = git@github.com:gavotte25/flexible-salesynce-notification.git
+[submodule "record"]
+	path = record
+	url = git@github.com:gavotte25/flexible-salesynce-record.git
+[submodule "type"]
+	path = type
+	url = git@github.com:gavotte25/flexible-salesynce-type.git

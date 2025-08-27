@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: rabbitmq
+  name: rabbitmq-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:4.0.2-management
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: rabbitmq-secret
+        ports:
+        - containerPort: 5672
+        - containerPort: 15672
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: rabbitmq
+  name: rabbitmq-service
+spec:
+  ports:
+  - port: 5672
+    targetPort: 5672
+    protocol: TCP
+  selector:
+    app: rabbitmq
+  type: ClusterIP

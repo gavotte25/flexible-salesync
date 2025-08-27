@@ -1,0 +1,255 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: recorddb
+  name: recorddb-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recorddb
+  template:
+    metadata:
+      labels:
+        app: recorddb
+    spec:
+      volumes:
+      - name: recorddb-init
+        hostPath:
+          path: /common/recorddb/init
+          type: Directory
+      - name: recorddb-data
+        hostPath:
+          path: /recorddb
+          type: DirectoryOrCreate
+      containers:
+      - name: recorddb
+        image: postgres:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /docker-entrypoint-initdb.d
+          name: recorddb-init
+        - mountPath: /var/lib/postgresql/data
+          name: recorddb-data
+        envFrom:
+        - secretRef:
+            name: record-db-secret
+        ports:
+        - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: recorddb
+  name: recorddb-service
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+  selector:
+    app: recorddb
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: elasticsearch
+  name: elasticsearch-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: elasticsearch:7.17.20
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: discovery.type
+          value: single-node
+        - name: ES_JAVA_OPTS
+          value: -Xms512m -Xmx512m
+        - name: http.cors.enabled
+          value: "true"
+        - name: http.cors.allow-origin
+          value: "*"
+        - name: http.cors.allow-headers
+          value: X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization
+        - name: http.cors.allow-credentials
+          value: "true"
+        ports:
+        - containerPort: 9200
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: elasticsearch
+  name: elasticsearch-service
+spec:
+  ports:
+  - port: 9200
+    targetPort: 9200
+    protocol: TCP
+  selector:
+    app: elasticsearch
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: logstash
+  name: logstash-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      volumes:
+      - name: logstash-config
+        hostPath:
+          path: /common/elasticsearch/logstash/config
+          type: Directory
+      - name: postgresql-jar
+        hostPath:
+          path: /common/elasticsearch/postgresql-42.7.3.jar
+          type: File
+      containers:
+      - name: logstash
+        image: logstash:7.17.20
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /usr/share/logstash/config
+          name: logstash-config
+        - mountPath: /usr/share/logstash/bin/postgresql-42.7.3.jar
+          name: postgresql-jar
+        command: ["logstash"]
+        args: ["-f", "/usr/share/logstash/config/logstash.conf"]
+        env:
+        - name: LS_JAVA_OPTS
+          value: -Xmx256m -Xms256m
+        - name: LOGSTASH_OUTPUT_HOST
+          value: elasticsearch-service
+        - name: LOGSTASH_OUTPUT_PORT
+          value: "9200"
+        - name: LOGSTASH_DB_HOST
+          value: recorddb-service
+        - name: LOGSTASH_DB_PORT
+          value: "5432"
+        envFrom:
+        - secretRef:
+            name: logstash-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: record
+    version: main
+  name: record-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: record
+      version: main
+  template:
+    metadata:
+      labels:
+        app: record
+        version: main
+    spec:
+      volumes:
+        - name: publickey-volume
+          secret:
+            secretName: publickey-secret
+      containers:
+      - name: record
+        image: record:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: publickey-volume
+          readOnly: true
+          mountPath: /etc/publickey
+        env:
+        - name: DB_HOST
+          value: recorddb-service
+        - name: DB_PORT
+          value: "5432"
+        - name: RABBITMQ_HOST
+          value: rabbitmq-service
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: ELASTICSEARCH_HOST
+          value: elasticsearch-service
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ELASTICSEARCH_INDEX
+          value: records
+        - name: ELASTICSEARCH_PROTOCOL
+          value: http
+        - name: TYPE_SERVICE_ENDPOINT
+          value: "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/internal/type/"
+        - name: TOKEN_KEY_LOCATION
+          value: /etc/publickey/publickey.pem
+        envFrom:
+        - secretRef:
+            name: record-secret
+        ports:
+        - containerPort: 8292
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: record
+    version: main
+  name: record-service
+spec:
+  ports:
+  - port: 8292
+    targetPort: 8292
+    protocol: TCP
+  selector:
+    app: record
+    version: main
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/auth-url: "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/auth/user/validate?request=$request_uri"
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "authorization, Content-Type"
+    nginx.ingress.kubernetes.io/auth-response-headers: "authorization"
+  name: record-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /record(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: record-service
+                port:
+                  number: 8292

@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: keycloakdb
+  name: keycloakdb-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloakdb
+  template:
+    metadata:
+      labels:
+        app: keycloakdb
+    spec:
+      volumes:
+      - name: keycloakdb-data
+        hostPath:
+          path: /keycloakdb
+          type: DirectoryOrCreate
+      containers:
+      - name: keycloakdb
+        image: postgres:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: keycloakdb-data
+        envFrom:
+        - secretRef:
+            name: keycloak-db-secret
+        env:
+        - name: POSTGRES_DB
+          value: keycloak
+        ports:
+        - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: keycloakdb
+  name: keycloakdb-service
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+  selector:
+    app: keycloakdb
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: keycloak
+  name: keycloak-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:24.0.1
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: keycloak-secret
+        env:
+        - name: KC_HEALTH_ENABLED
+          value: "true"
+        - name: KC_METRICS_ENABLED
+          value: "true"
+        - name: KC_DB
+          value: postgres
+        - name: KC_DB_URL
+          value: jdbc:postgresql://keycloakdb-service:5432/keycloak
+        ports:
+        - containerPort: 8080 
+        args: ["start-dev"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: keycloak
+  name: keycloak-service
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: keycloak
+  type: ClusterIP

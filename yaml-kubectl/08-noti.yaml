@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: notidb
+  name: notidb-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notidb
+  template:
+    metadata:
+      labels:
+        app: notidb
+    spec:
+      volumes:
+      - name: notidb-init
+        hostPath:
+          path: /common/notidb/init
+          type: Directory
+      - name: notidb-data
+        hostPath:
+          path: /notidb
+          type: DirectoryOrCreate
+      containers:
+      - name: notidb
+        image: postgres:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /docker-entrypoint-initdb.d
+          name: notidb-init
+        - mountPath: /var/lib/postgresql/data
+          name: notidb-data
+        envFrom:
+        - secretRef:
+            name: noti-db-secret
+        ports:
+        - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: notidb
+  name: notidb-service
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+  selector:
+    app: notidb
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: notification
+    version: main
+  name: notification-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification
+      version: main
+  template:
+    metadata:
+      labels:
+        app: notification
+        version: main
+    spec:
+      containers:
+      - name: notification
+        image: notification:latest
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: notification-secret
+        env:
+        - name: DB_HOST
+          value: notidb-service
+        - name: DB_PORT
+          value: "5432"
+        - name: RABBITMQ_HOST
+          value: rabbitmq-service
+        - name: RABBITMQ_PORT
+          value: "5672"
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: notification
+    version: main
+  name: notification-service
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: notification
+    version: main
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  name: noti-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /noti(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8080

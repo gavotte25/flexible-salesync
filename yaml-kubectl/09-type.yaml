@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: typedb
+  name: typedb-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: typedb
+  template:
+    metadata:
+      labels:
+        app: typedb
+    spec:
+      volumes:
+      - name: typedb-init
+        hostPath:
+          path: /common/typedb/init
+          type: Directory
+      - name: typedb-data
+        hostPath:
+          path: /typedb
+          type: DirectoryOrCreate
+      containers:
+      - name: typedb
+        image: postgres:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /docker-entrypoint-initdb.d
+          name: typedb-init
+        - mountPath: /var/lib/postgresql/data
+          name: typedb-data
+        envFrom:
+        - secretRef:
+            name: type-db-secret
+        ports:
+        - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: typedb
+  name: typedb-service
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+  selector:
+    app: typedb
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: type
+    version: main
+  name: type-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: type
+      version: main
+  template:
+    metadata:
+      labels:
+        app: type
+        version: main
+    spec:
+      volumes:
+        - name: publickey-volume
+          secret:
+            secretName: publickey-secret
+      containers:
+      - name: type
+        image: type:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: publickey-volume
+          readOnly: true
+          mountPath: /etc/publickey
+        env:
+        - name: DB_HOST
+          value: typedb-service
+        - name: DB_PORT
+          value: "5432"
+        - name: RABBITMQ_HOST
+          value: rabbitmq-service
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: TOKEN_KEY_LOCATION
+          value: /etc/publickey/publickey.pem
+        envFrom:
+        - secretRef:
+            name: type-secret
+        ports:
+        - containerPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: type
+    version: main
+  name: type-service
+spec:
+  ports:
+  - port: 5000
+    targetPort: 5000
+    protocol: TCP
+  selector:
+    app: type
+    version: main
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/auth-url: "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/auth/user/validate?request=$request_uri"
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "authorization, Content-Type"
+    nginx.ingress.kubernetes.io/auth-response-headers: "authorization"
+  name: type-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /type(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: type-service
+                port:
+                  number: 5000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "authorization, Content-Type"
+  name: type-internal-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /internal/type(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: type-service
+                port:
+                  number: 5000
