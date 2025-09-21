@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: record
+    version: tenant-b
+  name: record-tenant-b-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: record
+      version: tenant-b
+  template:
+    metadata:
+      labels:
+        app: record
+        version: tenant-b
+    spec:
+      volumes:
+        - name: publickey-volume
+          secret:
+            secretName: publickey-secret
+      containers:
+      - name: record
+        image: record-tenant-b:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: publickey-volume
+          readOnly: true
+          mountPath: /etc/publickey
+        env:
+        - name: DB_HOST
+          value: recorddb-service
+        - name: DB_PORT
+          value: "5432"
+        - name: RABBITMQ_HOST
+          value: rabbitmq-service
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: ELASTICSEARCH_HOST
+          value: elasticsearch-service
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ELASTICSEARCH_INDEX
+          value: records
+        - name: ELASTICSEARCH_PROTOCOL
+          value: http
+        - name: TYPE_SERVICE_ENDPOINT
+          value: "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/internal/type/"
+        - name: TOKEN_KEY_LOCATION
+          value: /etc/publickey/publickey.pem
+        envFrom:
+        - secretRef:
+            name: record-secret
+        - secretRef:
+            name: record-tenant-b-secret
+        ports:
+        - containerPort: 8292
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: record
+    version: tenant-b
+  name: record-tenant-b-service
+spec:
+  ports:
+  - port: 8292
+    targetPort: 8292
+    protocol: TCP
+  selector:
+    app: record
+    version: tenant-b
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/auth-url: "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/auth/user/validate?request=$request_uri"
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/rewrite-target: /tenant-b/$2
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "authorization, Content-Type"
+    nginx.ingress.kubernetes.io/auth-response-headers: "authorization"
+  name: record-tenant-b-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /record/tenant-b(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: record-tenant-b-service
+                port:
+                  number: 8292

@@ -1,0 +1,4 @@
+[submodule "record"]
+	path = record
+	url = git@github.com:gavotte25/flexible-salesynce-record.git
+	branch = main-tenant-b

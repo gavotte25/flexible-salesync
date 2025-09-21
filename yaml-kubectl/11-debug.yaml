@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: recorddb
+  name: recorddb-service-debug
+spec:
+  ports:
+  - port: 5433
+    targetPort: 5432
+    protocol: TCP
+  selector:
+    app: recorddb
+  type: LoadBalancer
