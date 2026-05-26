@@ -13,7 +13,7 @@ git submodule update --init --recursive --force --remote
 ```
 ## Build image and deploy
 ```
-docker build -t frontend-tenant-a frontend/docker build -t frontend-tenant-a frontend/
+docker build -t frontend-tenant-a frontend/
 minikube image load frontend-tenant-a:latest
 kubectl apply -f yaml-kubectl/.
 ```
