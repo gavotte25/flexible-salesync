@@ -41,7 +41,7 @@ Install Istio with an extension provider referring to the Jaeger collector servi
 istioctl install -f yaml-istioctl/tracing.yaml --skip-confirmation
 ```
 ### Prepare docker images
-Build docker images
+Build docker images (openjdk:24-jdk-slim is deprecated, use openjdk:27-ea-jdk-slim instead)
 ```
 docker build -t authentication authentication/
 docker build -t frontend frontend/

@@ -25,7 +25,7 @@ spec:
           type: DirectoryOrCreate
       containers:
       - name: notidb
-        image: postgres:latest
+        image: postgres:17
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - mountPath: /docker-entrypoint-initdb.d
