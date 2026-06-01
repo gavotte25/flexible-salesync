@@ -204,7 +204,7 @@ spec:
         - name: ELASTICSEARCH_PROTOCOL
           value: http
         - name: TYPE_SERVICE_ENDPOINT
-          value: "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/internal/type/"
+          value: "http://type-service.default.svc.cluster.local:5000/"
         - name: TOKEN_KEY_LOCATION
           value: /etc/publickey/publickey.pem
         envFrom:
@@ -235,7 +235,7 @@ kind: Ingress
 metadata:
   annotations:
     nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/auth-url: "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/auth/user/validate?request=$request_uri"
+    nginx.ingress.kubernetes.io/auth-url: "http://authentication-service.default.svc.cluster.local:8082/user/validate?request=$request_uri"
     nginx.ingress.kubernetes.io/auth-method: "GET"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/enable-cors: "true"
@@ -244,7 +244,8 @@ metadata:
   name: record-ingress
 spec:
   rules:
-    - http:
+    - host: api.salesync.ddns.net
+      http:
         paths:
           - path: /record(/|$)(.*)
             pathType: ImplementationSpecific

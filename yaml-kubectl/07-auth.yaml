@@ -139,7 +139,8 @@ metadata:
   name: auth-ingress
 spec:
   rules:
-    - http:
+    - host: api.salesync.ddns.net
+      http:
         paths:
           - path: /auth(/|$)(.*)
             pathType: ImplementationSpecific

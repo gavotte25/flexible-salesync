@@ -117,7 +117,8 @@ metadata:
   name: noti-ingress
 spec:
   rules:
-    - http:
+    - host: api.salesync.ddns.net
+      http:
         paths:
           - path: /noti(/|$)(.*)
             pathType: ImplementationSpecific

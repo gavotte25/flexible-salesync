@@ -102,18 +102,20 @@ spec:
   type: ClusterIP
 ---
 # For debug only
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: keycloak-console-route
+  name: keycloak-ingress
 spec:
-  parentRefs:
-  - name: salesync-gateway
-  hostnames: ["keycloak.salesync.ddns.net"]
+  ingressClassName: nginx
   rules:
-  - matches:
-    - path:
-        value: /
-    backendRefs:
-    - name: keycloak-service
-      port: 8080
+  - host: keycloak.salesync.ddns.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: keycloak-service
+            port:
+              number: 8080
