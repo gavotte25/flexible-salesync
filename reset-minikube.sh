@@ -1,5 +1,5 @@
 cd yaml-kubectl
-kubectl delete -f .
+kubectl delete -f 
 minikube ssh "
     sudo rm /authdb --recursive
     sudo rm /keycloakdb --recursive
