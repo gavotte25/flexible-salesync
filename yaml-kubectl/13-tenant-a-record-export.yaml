@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: tenant-a-record-export
+  name: tenant-a-record-export-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenant-a-record-export
+  template:
+    metadata:
+      labels:
+        app: tenant-a-record-export
+    spec:
+      containers:
+      - name: tenant-a-record-export
+        image: tenant-a-record-export:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TENANT_MANAGER_HOST
+          value: http://tenant-manager-service:5100
+        - name: SELF_DNS
+          value: tenant-a-record-export-service
+        - name: SELF_PORT
+          value: "80"
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: tenant-a-record-export
+  name: tenant-a-record-export-service
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: tenant-a-record-export
+  type: ClusterIP

@@ -1,0 +1,17 @@
+{
+  "name": "tenant-a-record-export",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/index.tsx --bundle --format=iife --jsx=transform --alias:react=./shims/react.js --alias:react-dom=./shims/react-dom.js --outfile=dist/ui/index.js --minify"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.5",
+    "@types/react": "^18.2.66",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "lucide-react": "^0.379.0"
+  }
+}

@@ -86,3 +86,10 @@ curl -X POST http://localhost:5100/activations \
 curl -X DELETE http://localhost:5100/activations/<tenant-realm>/<offering-key>
 ```
 A tenant's currently active customizations: `curl http://localhost:5100/registrations/<tenant-realm>`.
+#### tenant-a's CSV export
+Deploying `tenant-a-record-export` (image build/load and `kubectl apply -f yaml-kubectl/13-tenant-a-record-export.yaml`, same as any other service above) only registers its `csv-export` offering in the catalog - it does **not** activate it for `tenant-a`. That's a separate, manual step, run once after deploying:
+```
+curl -X POST http://localhost:5100/activations \
+  -H "Content-Type: application/json" \
+  -d '{"realmName": "tenant-a", "offeringKey": "csv-export"}'
+```
