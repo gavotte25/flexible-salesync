@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: frontend:latest
+        image: frontend:misc-cloud
         imagePullPolicy: IfNotPresent
         env:
         - name: VITE_DOMAIN

@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: tenantmanagerdb
+  name: tenantmanagerdb-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenantmanagerdb
+  template:
+    metadata:
+      labels:
+        app: tenantmanagerdb
+    spec:
+      volumes:
+      - name: tenantmanagerdb-data
+        hostPath:
+          path: /tenantmanagerdb
+          type: DirectoryOrCreate
+      containers:
+      - name: tenantmanagerdb
+        image: postgres:17
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: tenantmanagerdb-data
+        envFrom:
+        - secretRef:
+            name: tenant-manager-db-secret
+        ports:
+        - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: tenantmanagerdb
+  name: tenantmanagerdb-service
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+  selector:
+    app: tenantmanagerdb
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: tenant-manager
+    version: main
+  name: tenant-manager-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenant-manager
+      version: main
+  template:
+    metadata:
+      labels:
+        app: tenant-manager
+        version: main
+    spec:
+      containers:
+      - name: tenant-manager
+        image: tenant-manager:misc-cloud
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_HOST
+          value: tenantmanagerdb-service
+        - name: DB_PORT
+          value: "5432"
+        - name: RABBITMQ_HOST
+          value: rabbitmq-service
+        - name: RABBITMQ_PORT
+          value: "5672"
+        envFrom:
+        - secretRef:
+            name: tenant-manager-secret
+        ports:
+        - containerPort: 5100
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: tenant-manager
+    version: main
+  name: tenant-manager-service
+spec:
+  ports:
+  - port: 5100
+    targetPort: 5100
+    protocol: TCP
+  selector:
+    app: tenant-manager
+    version: main
+  type: ClusterIP

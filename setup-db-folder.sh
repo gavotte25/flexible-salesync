@@ -1,6 +1,6 @@
-minikube cp common.tar /common.tar -p baseline
+minikube cp common.tar /common.tar -p misc-cloud
 minikube ssh "
     cd /
     pwd
     sudo tar -xf common.tar
-" -p baseline
+" -p misc-cloud

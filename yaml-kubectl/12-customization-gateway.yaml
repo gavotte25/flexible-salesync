@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: customization-gateway
+    version: main
+  name: customization-gateway-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: customization-gateway
+      version: main
+  template:
+    metadata:
+      labels:
+        app: customization-gateway
+        version: main
+    spec:
+      containers:
+      - name: customization-gateway
+        image: customization-gateway:misc-cloud
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TENANT_MANAGER_HOST
+          value: http://tenant-manager-service:5100
+        ports:
+        - containerPort: 5200
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: customization-gateway
+    version: main
+  name: customization-gateway-service
+spec:
+  ports:
+  - port: 5200
+    targetPort: 5200
+    protocol: TCP
+  selector:
+    app: customization-gateway
+    version: main
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/auth-url: "http://authentication-service.default.svc.cluster.local:8082/user/validate?request=$request_uri"
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "authorization, Content-Type"
+    nginx.ingress.kubernetes.io/auth-response-headers: "authorization"
+  name: customization-gateway-ingress
+spec:
+  rules:
+    - host: api.salesync.ddns.net
+      http:
+        paths:
+          - path: /(custom/.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: customization-gateway-service
+                port:
+                  number: 5200

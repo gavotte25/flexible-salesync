@@ -180,7 +180,7 @@ spec:
             secretName: publickey-secret
       containers:
       - name: record
-        image: record:latest
+        image: record:misc-cloud
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: publickey-volume

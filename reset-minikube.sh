@@ -6,6 +6,7 @@ minikube ssh "
     sudo rm /notidb --recursive
     sudo rm /recorddb --recursive
     sudo rm /typedb --recursive
+    sudo rm /tenantmanagerdb --recursive
     sudo rm /minio --recursive
-" -p baseline
+" -p misc-cloud
 kubectl apply -f .
