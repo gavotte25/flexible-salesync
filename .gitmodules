@@ -14,6 +14,7 @@
 [submodule "type"]
 	path = type
 	url = git@github.com:gavotte25/flexible-salesynce-type.git
+	branch = misc-cloud
 [submodule "tenant-manager"]
 	path = tenant-manager
 	url = git@github.com:gavotte25/flexible-salesync-tenant-manager.git

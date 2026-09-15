@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: tenant-b-slack-notify
+  name: tenant-b-slack-notify-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenant-b-slack-notify
+  template:
+    metadata:
+      labels:
+        app: tenant-b-slack-notify
+    spec:
+      containers:
+      - name: tenant-b-slack-notify
+        image: tenant-b-slack-notify:misc-cloud
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TENANT_MANAGER_HOST
+          value: http://tenant-manager-service:5100
+        - name: AUTHENTICATION_HOST
+          value: http://authentication-service:8082
+        - name: TYPE_SERVICE_HOST
+          value: http://type-service:5000
+        - name: RABBITMQ_HOST
+          value: rabbitmq-service
+        - name: RABBITMQ_PORT
+          value: "5672"
+        envFrom:
+        - secretRef:
+            name: tenant-b-slack-notify-secret
+        ports:
+        - containerPort: 5300

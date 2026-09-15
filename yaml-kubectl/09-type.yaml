@@ -78,7 +78,7 @@ spec:
             secretName: publickey-secret
       containers:
       - name: type
-        image: type:latest
+        image: type:misc-cloud
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: publickey-volume

@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: tenant-b-slack-notify
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+
+tenant-manager:
+  base-url: ${TENANT_MANAGER_HOST}
+
+authentication:
+  base-url: ${AUTHENTICATION_HOST}
+
+type-service:
+  base-url: ${TYPE_SERVICE_HOST}
+
+offering:
+  key: slack-notify
+  customization-point: record.stage.slack-notify
+  version: 1.0.0
+
+server:
+  port: 5300

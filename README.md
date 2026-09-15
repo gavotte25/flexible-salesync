@@ -28,13 +28,13 @@ minikube start --cpus 4 --memory 24000 --ports=80 -p misc-cloud
 minikube addons enable ingress -p misc-cloud
 ```
 ### Prepare docker images
-`authentication`, `notification`, and `type` are unchanged from `baseline` on this branch — reuse their existing `:latest` images (no need to rebuild) if you already have them loaded into this cluster. `frontend`, `record`, `tenant-manager`, and `customization-gateway` are new/changed on `misc-cloud`, tagged accordingly so they don't collide with any `:latest` build from another branch — the k8s manifests in `yaml-kubectl/` reference these same tags
+`authentication` and `notification` are unchanged from `baseline` on this branch — reuse their existing `:latest` images (no need to rebuild) if you already have them loaded into this cluster. `frontend`, `record`, `type`, `tenant-manager`, and `customization-gateway` are new/changed on `misc-cloud`, tagged accordingly so they don't collide with any `:latest` build from another branch — the k8s manifests in `yaml-kubectl/` reference these same tags
 ```
 docker build -t authentication authentication/
 docker build -t frontend:misc-cloud frontend/
 docker build -t notification notification/
 docker build -t record:misc-cloud record/
-docker build -t type type/
+docker build -t type:misc-cloud type/
 docker build -t tenant-manager:misc-cloud tenant-manager/
 docker build -t customization-gateway:misc-cloud customization-gateway/
 ```
@@ -44,7 +44,7 @@ minikube image load frontend:misc-cloud -p misc-cloud
 minikube image load authentication:latest -p misc-cloud
 minikube image load notification:latest -p misc-cloud
 minikube image load record:misc-cloud -p misc-cloud
-minikube image load type:latest -p misc-cloud
+minikube image load type:misc-cloud -p misc-cloud
 minikube image load tenant-manager:misc-cloud -p misc-cloud
 minikube image load customization-gateway:misc-cloud -p misc-cloud
 ```
@@ -92,4 +92,28 @@ Deploying `tenant-a-record-export` (image build/load and `kubectl apply -f yaml-
 curl -X POST http://localhost:5100/activations \
   -H "Content-Type: application/json" \
   -d '{"realmName": "tenant-a", "offeringKey": "csv-export"}'
+```
+#### tenant-b's Slack notification
+An event-driven (backend-only, no frontend) customization: `tenant-b-slack-notify` consumes `record`'s `record.stage.changed` event and posts to a per-tenant Slack incoming webhook when a record hits a configured type:stage. Deploying it (image build/load and `kubectl apply -f yaml-kubectl/14-tenant-b-slack-notify.yaml`, same as any other service above) only registers its `slack-notify` offering in the catalog - it does **not** activate it for any tenant. Activating it for a tenant is two steps:
+
+**1. Turn the feature on for the tenant** (one-time, run by whoever operates the cluster):
+```
+kubectl port-forward svc/tenant-manager-service 5100:5100
+curl -X POST http://localhost:5100/activations \
+  -H "Content-Type: application/json" \
+  -d '{"realmName": "<tenant-realm>", "offeringKey": "slack-notify"}'
+```
+No `config` is needed here - it just flips the tenant into "has this offering active" so step 2 can take effect. Any tenant wanting this notification activates the same already-deployed offering this same way - no new deployment, same as `csv-export` above.
+
+**2. Set the webhook URL and templates** (done by the tenant itself, no curl/ops action, repeatable any time they want to change it): create a record named exactly `Slack Setting` with two properties:
+- `Webhook Url` - the tenant's own Slack incoming webhook URL
+- `Json Config` - JSON mapping `"TypeName:StageName"` to a message template, e.g. `{"Lead:Working": "<USER_NAME_PLACEHOLDER> moved <RECORD_NAME_PLACEHOLDER> to Working"}`
+
+`tenant-b-slack-notify` picks this up automatically (via the `record.changed` event), resolves the type/stage names to real ids through `type`'s lookup endpoint, and writes the resolved `config` onto the tenant's registration - **only if step 1 was already done** for that tenant; creating this record before activating does nothing. To change the webhook or templates later, just edit the same record's properties again (an update fires the same event as a create).
+
+Equivalently, `config` can be set directly in the step 1 curl call instead of via a Slack Setting record, with `"<typeId>:<stageId>"` keys (real ids, not names) - useful for scripting/seeding without going through the app UI:
+```
+curl -X POST http://localhost:5100/activations \
+  -H "Content-Type: application/json" \
+  -d '{"realmName": "<tenant-realm>", "offeringKey": "slack-notify", "config": "{\"webhookUrl\":\"https://hooks.slack.com/services/REPLACE/WITH/YOURS\",\"templates\":{\"<typeId>:<stageId>\":\"<USER_NAME_PLACEHOLDER> moved <RECORD_NAME_PLACEHOLDER> to this stage\"}}"}'
 ```
